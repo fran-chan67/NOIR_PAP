@@ -951,7 +951,7 @@ var Search = {
 
 // ==========================================
 // ProductData
-// IDs 1-99  = ROUPA  → S/M/L/XL
+// IDs 1-99  = ROUPA  → XS/S/M/L/XL
 // IDs 100+  = SAPATOS → 38-44
 // ==========================================
 var ProductData = {
@@ -1011,7 +1011,7 @@ var ProductData = {
         var sz = document.getElementById('sizeSelector');
         if (sz) {
             var isShoe = parseInt(id) >= 100;
-            var sizes  = isShoe ? [38,39,40,41,42,43,44] : ['S','M','L','XL'];
+            var sizes  = isShoe ? [38,39,40,41,42,43,44] : ['XS','S','M','L','XL'];
             sz.innerHTML = sizes.map(function(s) {
                 return '<button class="size-option" data-size="' + s + '">' + s + '</button>';
             }).join('');
@@ -1081,10 +1081,9 @@ var Banner = {
 // ==========================================
 var Wishlist = {
     items: [],
+    db: null,
 
     init: function() {
-        this.items = JSON.parse(localStorage.getItem('noirWishlist') || '[]');
-
         // Injectar estilos
         if (!document.getElementById('_wishStyles')) {
             var s = document.createElement('style');
@@ -1104,6 +1103,11 @@ var Wishlist = {
             document.head.appendChild(s);
         }
 
+        // Inicializar Firestore
+        if (typeof firebase !== 'undefined' && firebase.apps.length) {
+            try { Wishlist.db = firebase.firestore(); } catch(e) {}
+        }
+
         // Injectar ícone de coração no header
         Wishlist.injectHeaderIcon();
 
@@ -1119,7 +1123,6 @@ var Wishlist = {
             heart.className = 'btn-wishlist';
             heart.setAttribute('aria-label', 'Favoritos');
             heart.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>';
-            if (Wishlist.items.indexOf(pid) !== -1) heart.classList.add('active');
             heart.addEventListener('click', function(e) {
                 e.preventDefault(); e.stopPropagation();
                 Wishlist.toggle(pid, heart);
@@ -1131,8 +1134,55 @@ var Wishlist = {
         var btn = document.getElementById('wishlistBtn');
         if (btn) {
             var pid = new URLSearchParams(window.location.search).get('id');
-            if (pid && Wishlist.items.indexOf(pid) !== -1) btn.classList.add('active');
             btn.addEventListener('click', function() { Wishlist.toggle(pid, btn); });
+        }
+
+        // Carregar favoritos quando auth muda
+        if (typeof firebase !== 'undefined' && firebase.apps.length) {
+            firebase.auth().onAuthStateChanged(function(user) {
+                if (user) {
+                    Wishlist.loadFromFirestore();
+                } else {
+                    Wishlist.items = [];
+                    Wishlist.updateAllHearts();
+                    Wishlist.updateCount();
+                }
+            });
+        }
+    },
+
+    loadFromFirestore: function() {
+        var user = Auth.currentUser;
+        if (!user || !Wishlist.db) return;
+        Wishlist.db.collection('wishlists').doc(user.uid).get()
+            .then(function(doc) {
+                if (doc.exists) {
+                    Wishlist.items = doc.data().items || [];
+                } else {
+                    Wishlist.items = [];
+                }
+                Wishlist.updateAllHearts();
+                Wishlist.updateCount();
+            })
+            .catch(function() { Wishlist.items = []; });
+    },
+
+    saveToFirestore: function() {
+        var user = Auth.currentUser;
+        if (!user || !Wishlist.db) return;
+        Wishlist.db.collection('wishlists').doc(user.uid).set({ items: Wishlist.items });
+    },
+
+    updateAllHearts: function() {
+        document.querySelectorAll('.product-card').forEach(function(card) {
+            var pid = card.dataset.productId;
+            var heart = card.querySelector('.btn-wishlist');
+            if (heart) heart.classList.toggle('active', Wishlist.items.indexOf(pid) !== -1);
+        });
+        var wishBtn = document.getElementById('wishlistBtn');
+        if (wishBtn) {
+            var pid = new URLSearchParams(window.location.search).get('id');
+            if (pid) wishBtn.classList.toggle('active', Wishlist.items.indexOf(pid) !== -1);
         }
     },
 
@@ -1228,26 +1278,33 @@ var Wishlist = {
     removeFromPanel: function(pid) {
         var idx = Wishlist.items.indexOf(pid);
         if (idx !== -1) Wishlist.items.splice(idx, 1);
-        localStorage.setItem('noirWishlist', JSON.stringify(Wishlist.items));
+        Wishlist.saveToFirestore();
         Wishlist.updateCount();
         Wishlist.renderPanel();
-        // Atualizar coraçõezinhos na grelha
         document.querySelectorAll('.product-card[data-product-id="' + pid + '"] .btn-wishlist').forEach(function(b) { b.classList.remove('active'); });
     },
 
     toggle: function(pid, btn) {
         if (!pid) return;
+
+        // Requer login
+        if (!Auth.currentUser) {
+            Wishlist.showToast('Inicia sessão para guardar favoritos');
+            setTimeout(function() { Auth.openPanel(); }, 800);
+            return;
+        }
+
         var idx = Wishlist.items.indexOf(pid);
         if (idx === -1) {
             Wishlist.items.push(pid);
             if (btn) btn.classList.add('active');
-            Wishlist.showToast('Adicionado aos favoritos \u2665');
+            Wishlist.showToast('Adicionado aos favoritos ♥');
         } else {
             Wishlist.items.splice(idx, 1);
             if (btn) btn.classList.remove('active');
             Wishlist.showToast('Removido dos favoritos');
         }
-        localStorage.setItem('noirWishlist', JSON.stringify(Wishlist.items));
+        Wishlist.saveToFirestore();
         Wishlist.updateCount();
     },
 
