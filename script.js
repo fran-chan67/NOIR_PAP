@@ -654,52 +654,9 @@ var Cart = {
             };
 
             fetch(SHEETS_URL, { method: 'POST', body: JSON.stringify(payload) })
-                .then(function()  { Cart._sendConfirmationEmail(email, nome, itensList, totalStr, orderNum); Cart._showConfirmation(nome, totalStr, orderNum); })
-                .catch(function() { Cart._sendConfirmationEmail(email, nome, itensList, totalStr, orderNum); Cart._showConfirmation(nome, totalStr, orderNum); });
+                .then(function()  { Cart._showConfirmation(nome, totalStr, orderNum); })
+                .catch(function() { Cart._showConfirmation(nome, totalStr, orderNum); });
         });
-    },
-
-    _sendConfirmationEmail: function(email, nome, itensList, totalStr, orderNum) {
-        // Construir HTML do email com fotos dos produtos
-        var emailHtml = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;border:1px solid #e0e0e0;padding:20px">' +
-            '<h2 style="color:#000;text-align:center">Encomenda Confirmada</h2>' +
-            '<p>Olá <strong>' + nome + '</strong>,</p>' +
-            '<p>Obrigado pela sua encomenda! Aqui estão os detalhes:</p>' +
-            '<p><strong>Número da Encomenda:</strong> ' + orderNum + '</p>' +
-            '<p><strong>Produtos:</strong></p>';
-        
-        // Adicionar cada produto com sua foto
-        itensList.forEach(function(item) {
-            emailHtml += '<div style="margin:15px 0;border-bottom:1px solid #e0e0e0;padding-bottom:15px">' +
-                '<div style="display:flex;gap:15px">' +
-                '<img src="' + item.image + '" alt="' + item.title + '" style="width:80px;height:80px;object-fit:cover;border-radius:4px">' +
-                '<div>' +
-                '<p style="margin:0 0 5px 0"><strong>' + item.title + '</strong></p>' +
-                '<p style="margin:0 0 5px 0">Tamanho: ' + item.size + '</p>' +
-                '<p style="margin:0 0 5px 0">Quantidade: ' + item.qty + '</p>' +
-                '<p style="margin:0;color:#666">Preço: ' + item.price + '</p>' +
-                '</div>' +
-                '</div>' +
-                '</div>';
-        });
-        
-        emailHtml += '<p style="border-top:2px solid #000;padding-top:15px;margin-top:20px"><strong>Total: ' + totalStr + '</strong></p>' +
-            '<p>Receberá mais informações sobre o envio em breve.</p>' +
-            '<p>Para qualquer dúvida, contacte-nos: noir.studios.pt@gmail.com ou 927 440 699</p>' +
-            '<p style="text-align:center;color:#a0a0a0;font-size:12px">© 2026 NOIR. Todos os direitos reservados.</p>' +
-            '</div>';
-        
-        // Enviar email através do Google Apps Script
-        var emailPayload = {
-            type: 'confirmationEmail',
-            email: email,
-            nome: nome,
-            orderNum: orderNum,
-            htmlContent: emailHtml
-        };
-        
-        fetch(SHEETS_URL, { method: 'POST', body: JSON.stringify(emailPayload) })
-            .catch(function(err) { console.log('Email enviado com sucesso'); });
     },
 
     _showConfirmation: function(nome, totalStr, orderNum) {
