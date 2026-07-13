@@ -526,6 +526,22 @@ var Cart = {
             return it.title + ' (tam.' + it.size + ') x' + it.qty;
         }).join(' | ');
 
+        // Detalhes dos itens com imagens para o email de confirmação
+        var itensDetalhes = this.items.map(function(it) {
+            // Converter path relativo em URL absoluta do GitHub Pages
+            var imgUrl = it.image || '';
+            if (imgUrl && !imgUrl.startsWith('http')) {
+                imgUrl = 'https://fran-chan67.github.io/NOIR_PAP/' + imgUrl;
+            }
+            return {
+                titulo: it.title,
+                tamanho: it.size,
+                qty: it.qty,
+                preco: it.price,
+                imagem: imgUrl
+            };
+        });
+
         // Pré-preencher com dados do perfil se logado
         var profile = Auth.getProfile();
 
@@ -650,7 +666,9 @@ var Cart = {
                 encomenda: orderNum,
                 nome: nome, email: email, telemovel: tel,
                 pais: pais, codigoPostal: cp, cidade: cidade,
-                morada: morada, itens: itensList, total: totalStr
+                morada: morada, itens: itensList,
+                itensDetalhes: itensDetalhes,
+                total: totalStr
             };
 
             fetch(SHEETS_URL, { method: 'POST', body: JSON.stringify(payload) })
